@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>v1 Preview</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      /* Sidebar Styles */
+      #sidebar {
+        width: 250px;
+        background-color: #f1f1f1;
+        border-right: 1px solid #ccc;
+        display: flex;
+        flex-direction: column;
+      }
+      #chat-sessions {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .chat-session {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .chat-session input {
+        width: 100px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+      }
+      .chat-session-name {
+        flex: 1;
+        margin-left: 5px;
+        font-weight: bold;
+        outline: none;
+        border: none;
+        background: transparent;
+      }
+      /* Main content area */
+      #main-area {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* Prevents overflow outside of the main area */
+      }
+      #chat-history {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto; /* Ensures scrollability within the chat history */
+        overflow-x: hidden; /* Hides horizontal overflow and prevents layout shifting */
+      }
+      .message {
+        padding: 5px;
+        border-radius: 5px;
+        display: block; /* Ensures that each message takes its own line */
+        width: 70%; /* Control the width of messages */
+        word-wrap: break-word; /* Ensures words are broken nicely */
+        word-break: break-all; /* Forces long words or URLs to wrap */
+      }
+
+      .message.user {
+        background: #d9fdd3;
+        margin-left: 10px; /* Pushes the user message to the right */
+        text-align: left; /* Aligns text inside the message box to the left */
+      }
+
+      .message.llm {
+        background: #e0e0e0;
+        margin-right: auto; /* Keeps LLM messages on the left */
+        text-align: left; /* Aligns text inside the message box to the left */
+      }
+
+      /* Input area */
+      #input-area {
+        border-top: 1px solid #ccc;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+      }
+      #input-text {
+        flex: 1;
+        padding: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <h2 style="text-align: center">Chats</h2>
+      <div id="chat-sessions">
+        <!-- Generated chat sessions will go here -->
+      </div>
+      <button id="new-chat-btn" style="margin: 10px">+ New Chat</button>
+    </div>
+
+    <!-- MAIN AREA (Chat) -->
+    <div id="main-area">
+      <div id="chat-history">
+        <!-- Chat messages for the selected session will appear here -->
+      </div>
+      <div id="input-area">
+        <input type="text" id="input-text" placeholder="Type your message..." />
+        <button id="send-btn">Send</button>
+      </div>
+    </div>
+
+    <script>
+      // Data structure to hold chats
+      // Each chat session has an id, name, and messages
+      let chatSessions = [];
+      let currentChatId = null;
+
+      // Shortcut to DOM elements
+      const chatSessionsDiv = document.getElementById("chat-sessions");
+      const chatHistoryDiv = document.getElementById("chat-history");
+      const newChatBtn = document.getElementById("new-chat-btn");
+      const sendBtn = document.getElementById("send-btn");
+      const inputText = document.getElementById("input-text");
+
+      // Create a new chat session
+      function createNewChat() {
+        const newId = Date.now().toString();
+        chatSessions.push({
+          id: newId,
+          name: "Untitled Chat",
+          messages: [],
+        });
+        currentChatId = newId;
+        renderChatSessions();
+        renderChatHistory();
+      }
+
+      function saveChatsToLocalStorage() {
+        localStorage.setItem("chatSessions", JSON.stringify(chatSessions));
+      }
+
+      function loadChatsFromLocalStorage() {
+        const storedChats = localStorage.getItem("chatSessions");
+        if (storedChats) {
+          chatSessions = JSON.parse(storedChats);
+          currentChatId = chatSessions.length > 0 ? chatSessions[0].id : null;
+          renderChatSessions();
+          renderChatHistory();
+        }
+      }
+
+      function createNewChat() {
+        const newId = Date.now().toString();
+        chatSessions.push({
+          id: newId,
+          name: "Untitled Chat",
+          messages: [],
+        });
+        currentChatId = newId;
+        renderChatSessions();
+        renderChatHistory();
+        saveChatsToLocalStorage();
+      }
+
+      // Render the list of chat sessions in the sidebar
+      function renderChatSessions() {
+        chatSessionsDiv.innerHTML = ""; // Clear previous
+        chatSessions.forEach((session) => {
+          const chatDiv = document.createElement("div");
+          chatDiv.className = "chat-session";
+          chatDiv.dataset.id = session.id;
+
+          // Input or display for chat name
+          const chatNameInput = document.createElement("input");
+          chatNameInput.value = session.name;
+          chatNameInput.className = "chat-session-name";
+
+          // We want to rename chat session on input
+          chatNameInput.addEventListener("change", (e) => {
+            session.name = e.target.value;
+          });
+          chatNameInput.addEventListener("click", (e) => {
+            e.stopPropagation(); // Prevents the click from bubbling up to parent elements
+          });
+
+          chatDiv.appendChild(chatNameInput);
+
+          // Highlight the current session
+          if (session.id === currentChatId) {
+            chatDiv.style.backgroundColor = "#ddd";
+          }
+
+          // Click to switch to this chat session
+          chatDiv.addEventListener("click", () => {
+            currentChatId = session.id;
+            renderChatSessions();
+            renderChatHistory();
+          });
+
+          chatSessionsDiv.appendChild(chatDiv);
+        });
+      }
+
+      // Render chat messages in the main area for the currently selected chat
+      function renderChatHistory() {
+        chatHistoryDiv.innerHTML = "";
+        const currentSession = chatSessions.find((s) => s.id === currentChatId);
+        if (!currentSession) return;
+
+        currentSession.messages.forEach((msg) => {
+          const msgDiv = document.createElement("div");
+          msgDiv.className = "message " + msg.role; // "user" or "llm"
+          msgDiv.textContent = msg.text;
+          chatHistoryDiv.appendChild(msgDiv);
+        });
+
+        // Scroll to bottom
+        chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+      }
+
+      // On "Send" button:
+      // 1) add user message to chat
+      // 2) simulate an LLM response
+      function handleSendMessage() {
+        const text = inputText.value.trim();
+        if (!text || !currentChatId) return;
+
+        // Add user message
+        const currentSession = chatSessions.find((s) => s.id === currentChatId);
+        currentSession.messages.push({ role: "user", text });
+
+        // Clear input
+        inputText.value = "";
+
+        renderChatHistory();
+
+        // Generate random response composed of words with 1-12 characters
+        const randomWordCount = Math.floor(Math.random() * 1000) + 1;
+        const randomResponse = Array.from({ length: randomWordCount }, () => {
+          const randomWordLength = Math.floor(Math.random() * 12) + 1;
+          return Array.from(
+            { length: randomWordLength },
+            () => Math.random().toString(36)[2]
+          ).join("");
+        }).join(" ");
+
+        currentSession.messages.push({ role: "llm", text: randomResponse });
+        renderChatHistory();
+
+        saveChatsToLocalStorage();
+      }
+
+      // Event Listeners
+      newChatBtn.addEventListener("click", createNewChat);
+      sendBtn.addEventListener("click", handleSendMessage);
+      // also allow "enter" key to send
+      inputText.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") handleSendMessage();
+      });
+
+      // Create an initial chat session on load
+      loadChatsFromLocalStorage();
+      createNewChat();
+    </script>
+  </body>
+</html>
